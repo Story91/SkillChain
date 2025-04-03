@@ -54,7 +54,12 @@ export async function getSkillById(skillId: string): Promise<Skill | null> {
 }
 
 export async function createSkill(skill: Omit<Skill, "id" | "createdAt">): Promise<Skill | null> {
-  if (!redis) return null;
+  console.log("[skills.ts/createSkill] Start", skill.name);
+  
+  if (!redis) {
+    console.error("[skills.ts/createSkill] Redis not initialized");
+    return null;
+  }
   
   try {
     // Generuj unikalny identyfikator
@@ -65,21 +70,37 @@ export async function createSkill(skill: Omit<Skill, "id" | "createdAt">): Promi
       createdAt: Date.now(),
     };
     
+    console.log(`[skills.ts/createSkill] Saving skill to Redis: ${skillId}`);
+    
+    // Sprawdź, czy Redis jest dostępny
+    try {
+      const pingResult = await redis.ping();
+      console.log(`[skills.ts/createSkill] Redis ping: ${pingResult}`);
+    } catch (pingError) {
+      console.error("[skills.ts/createSkill] Redis ping failed:", pingError);
+      return null;
+    }
+    
     // Zapisz umiejętność jako element hasha
+    console.log("[skills.ts/createSkill] Setting hash...");
     await redis.hset(SKILLS_KEY, { [skillId]: JSON.stringify(newSkill) });
     
     // Dodaj umiejętność do użytkownika, który ją stworzył
+    console.log(`[skills.ts/createSkill] Adding skill to user: ${skill.createdBy}`);
     await addSkillToUser(skill.createdBy, skillId);
     
     // Aktualizuj rekord użytkownika
+    console.log(`[skills.ts/createSkill] Updating user: ${skill.createdBy}`);
     await createOrUpdateUser(skill.createdBy);
     
     // Dodaj umiejętność do rankingu z początkowym wynikiem 0
+    console.log(`[skills.ts/createSkill] Adding to leaderboard: ${skillId}`);
     await redis.zadd(LEADERBOARD_KEY, { score: 0, member: skillId });
     
+    console.log(`[skills.ts/createSkill] Skill created successfully: ${skillId}`);
     return newSkill;
   } catch (error) {
-    console.error("Error in createSkill:", error);
+    console.error("[skills.ts/createSkill] Error:", error);
     return null;
   }
 }

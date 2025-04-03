@@ -55,34 +55,47 @@ export async function GET(request: NextRequest) {
 
 // POST /api/skills - dodaj nową umiejętność
 export async function POST(request: NextRequest) {
+  console.log("[POST /api/skills] Rozpoczęcie obsługi żądania");
   try {
     // Check Redis connection first
     if (!redis) {
+      console.error("[POST /api/skills] Redis is not connected");
       return NextResponse.json({ 
-        error: "Redis is not connected. Please check your Redis configuration." 
+        error: "Redis is not connected. Please check your Redis configuration.",
+        details: {
+          REDIS_URL: process.env.REDIS_URL ? "Set" : "Not set",
+          REDIS_TOKEN: process.env.REDIS_TOKEN ? "Set" : "Not set"
+        }
       }, { status: 500 });
     }
 
+    console.log("[POST /api/skills] Parsowanie body z żądania");
     const body = await request.json();
     const { name, description, createdBy } = body;
+    console.log(`[POST /api/skills] Otrzymane dane: name=${name}, description=${description?.substring(0, 20)}..., createdBy=${createdBy}`);
 
     // Walidacja danych
     if (!name || !description || !createdBy) {
+      console.error("[POST /api/skills] Nieprawidłowe dane wejściowe");
       return NextResponse.json({ 
         error: "Name, description and createdBy are required" 
       }, { status: 400 });
     }
 
+    console.log("[POST /api/skills] Wywołanie createSkill");
     const newSkill = await createSkill({ name, description, createdBy });
+    
     if (!newSkill) {
+      console.error("[POST /api/skills] createSkill zwróciło null");
       return NextResponse.json({ 
         error: "Failed to create skill. Check server logs for details." 
       }, { status: 500 });
     }
 
+    console.log(`[POST /api/skills] Skill utworzony: ${newSkill.id}`);
     return NextResponse.json({ skill: newSkill }, { status: 201 });
   } catch (error) {
-    console.error("Error creating skill:", error);
+    console.error("[POST /api/skills] Error creating skill:", error);
     return NextResponse.json({ 
       error: error instanceof Error ? error.message : "Unknown error",
       stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined

@@ -104,6 +104,8 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
     if (!address) return null;
 
     try {
+      console.log(`[createSkill] Próba utworzenia: ${name}`);
+      
       const response = await fetch('/api/skills', {
         method: 'POST',
         headers: {
@@ -116,15 +118,25 @@ export default function SkillProvider({ children }: { children: ReactNode }) {
         })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[createSkill] Błąd odpowiedzi:', response.status, errorData);
+        throw new Error(`Server responded with ${response.status}: ${errorData.error || 'Unknown error'}`);
+      }
+
       const data = await response.json();
+      console.log('[createSkill] Odpowiedź:', data);
+      
       if (data.skill) {
         await refreshSkills();
         return data.skill;
       }
+      
+      console.error('[createSkill] Brak obiektu skill w odpowiedzi');
       return null;
     } catch (error) {
-      console.error('Error creating skill:', error);
-      return null;
+      console.error('[createSkill] Błąd:', error);
+      throw error;
     }
   };
 
